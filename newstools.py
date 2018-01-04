@@ -151,6 +151,24 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.tx
         fle.write(repr(set(noref_words)) + '\n')
 
 
+def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.txt'):
+    words = {}
+    noref_words = []
+    templates = []
+    with open(words_file) as fle:
+        words = eval(fle.readlines()[0])
+    with open(noref_words_file) as fle:
+        noref_words = eval(fle.readlines()[0])
+    with open(templates_file) as fle:
+        for line in fle.readlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            templates.append(line)
+    with open(output, 'w') as fle:
+        fle.write(repr([words, noref_words, templates]))
+
+
 # [dumb_crawler_main(i) for i in range(10, 15)]
 # [dumb_crawler_sme(i) for i in range(6)]
 # [dumb_crawler_sse(i) for i in range(5)]
@@ -158,3 +176,4 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.tx
 # [dumb_crawler_hss_students_activities(i) for i in range(3)]
 # [dumb_crawler_hss_academic_activities(i) for i in range(5)]
 generate_word_bank()
+generate_merged_data()
