@@ -1,0 +1,7 @@
+*.txt
+!requirements.txt
+*.bak
+deploy.zip
+venv
+.*
+__pycache__
