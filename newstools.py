@@ -118,7 +118,7 @@ def dumb_crawler_hss_academic_activities(page=0, file='news.txt'):
         _dumb_crawler_legacy(page_url, '/zh-hans/node/', fle)
 
 
-def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.txt', output='wordbank.txt'):
+def generate_word_bank(original='news.txt', custom='custom.txt', noref_output='noref.txt', output='wordbank.txt'):
     res = {
         'time': OrderedDict(),
         'location': OrderedDict(),
@@ -154,7 +154,7 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.tx
     res = {k: list(v) for k, v in res.items()}
     with open(output, 'w') as fle:
         fle.write(repr(res) + '\n')
-    with open(noref, 'w') as fle:
+    with open(noref_output, 'w') as fle:
         fle.write(repr(set(noref_words)) + '\n')
 
 

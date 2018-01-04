@@ -96,9 +96,12 @@ def update_news_file(file='news.txt'):
 
 def lambda_handle(event, context):
 
+    def work(s: str):
+        return '/tmp/work/' + s
+
     logger.info('Preparing to download bot code')
-    l = boto3.client('lambda')
-    code_url = l.get_function(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'])['Code']['Location']
+    lambda_client = boto3.client('lambda')
+    code_url = lambda_client.get_function(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'])['Code']['Location']
     code_zip_data = urlopen(code_url).read()
     os.system('mkdir /tmp/work')
     with open('/tmp/code.zip', 'wb') as fle:
@@ -109,14 +112,24 @@ def lambda_handle(event, context):
         fle.extractall('/tmp/work')
 
     logger.info('Preparing to update')
-    update_news_file('/tmp/work/news.txt')
-    newstools.generate_word_bank('/tmp/work/news.txt', noref='/tmp/work/noref.txt', output='/tmp/work/wordbank.txt')
-    newstools.generate_merged_data('/tmp/work/wordbank.txt', output='/tmp/work/merged.txt')
+    if 'Records' in event:
+        logger.info('Preparing to get update from S3')
+        bucket = boto3.resource('s3').Bucket(os.environ['LGUHUANGLIBOT_DATA_BUCKET_NAME'])
+        bucket.download_file('custom.txt', work('custom.txt'))
+        bucket.download_file('templates.txt', work('templates.txt'))
+    else:
+        logger.info('Preparing to get update from news')
+        update_news_file(work('news.txt'))
+
+    logger.info('Preparing to regenerate word bank and merged data')
+    newstools.generate_word_bank(work('news.txt'), custom=work('custom.txt'), noref_output=work('noref.txt'), output=work('wordbank.txt'))
+    newstools.generate_merged_data(work('wordbank.txt'), noref_words_file=work('noref.txt'), templates_file=work('templates.txt'), output=work('merged.txt'))
 
     logger.info('Preparing to make deploy.zip')
     shutil.make_archive('/tmp/deploy', 'zip', '/tmp/work')
 
     logger.info('Preparing to upload')
-
-    l.update_function_code(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'],
+    lambda_client.update_function_code(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'],
                            ZipFile=open('/tmp/deploy.zip', 'rb').read())
+
+    logger.info('Returning')
