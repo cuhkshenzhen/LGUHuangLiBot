@@ -45,15 +45,16 @@ def handle(event, context):
 
     do = do_not = first_name = ''
     user = message['from']
+    huangli = huanglitools.HuangLi()
 
     if text.startswith('/my'):
         user_id = user['id']
         today = date.fromtimestamp(time.time() + 28800)  # AWS Lambda uses UTC timezone; 28800 = 8 * 3600
-        do = huanglitools.calculate('{}{}do'.format(user_id, today))
-        do_not = huanglitools.calculate('{}{}do_not'.format(user_id, today))
+        do = huangli.calculate('{}{}do'.format(user_id, today))
+        do_not = huangli.calculate('{}{}do_not'.format(user_id, today))
     elif text.startswith('/random'):
-        do = huanglitools.calculate(random.random())
-        do_not = huanglitools.calculate(random.random())
+        do = huangli.calculate(random.random())
+        do_not = huangli.calculate(random.random())
     else:
         return default_lambda_response
 

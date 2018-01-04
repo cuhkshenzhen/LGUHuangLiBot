@@ -1,3 +1,5 @@
+from collections import OrderedDict
+
 import requests
 from bs4 import BeautifulSoup
 
@@ -23,15 +25,15 @@ def ner(text: str):
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Accept': '*/*'
     }
-    ret = {
-        'time': set(),
-        'location': set(),
-        'person_name': set(),
-        'org_name': set(),
-        'company_name': set(),
-        'product_name': set(),
-        'job_title': set(),
-        'other_proper': set()
+    res = {
+        'time': OrderedDict(),  # Not using sets because order is significant
+        'location': OrderedDict(),
+        'person_name': OrderedDict(),
+        'org_name': OrderedDict(),
+        'company_name': OrderedDict(),
+        'product_name': OrderedDict(),
+        'job_title': OrderedDict(),
+        'other_proper': OrderedDict()
     }
     res = requests.post('https://bosonnlp.com/analysis/ner?sensitivity=4', headers=headers, data=('data=' + text).encode('utf-8'))
     if res.status_code != 200:
@@ -42,22 +44,22 @@ def ner(text: str):
     words = res['word']
     entities = res['entity']
     for start, end, category in entities:
-        if category not in ret:
+        if category not in res:
             continue
         word = ''.join(words[start:end])
         if len(word) > 1:
-            ret[category].add(word)
+            res[category][word] = None
     for i, tag in enumerate(tags):
         word = words[i]
         if len(word) <= 1:
             continue
-        if tag == 'ns':  # 地名，如“中国”，“上海市”，“江浙”location
-            ret['location'].add(word)
+        if tag == 'ns':  # 地名，如“中国”，“上海市”，“江浙”
+            res['location'][word] = None
         elif tag == 'nt':  # 组织机构名，如“中国队”，“央行”
-            ret['org_name'].add(word)
+            res['org_name'][word] = None
         elif tag == 'nz':  # 其它专有名词，如“银联”，“腾讯”
-            ret['other_proper'].add(word)
-    return ret
+            res['other_proper'][word] = None
+    return {k: list(v) for k, v in res.items()}
 
 
 def get_ner_entry(link) -> list:
@@ -116,39 +118,62 @@ def dumb_crawler_hss_academic_activities(page=0, file='news.txt'):
         _dumb_crawler_legacy(page_url, '/zh-hans/node/', fle)
 
 
-def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.txt', output='wordbank.txt'):
-    ret = {
-        'time': set(),
-        'location': set(),
-        'person_name': set(),
-        'org_name': set(),
-        'company_name': set(),
-        'product_name': set(),
-        'job_title': set(),
-        'other_proper': set()
+def generate_word_bank(original='news.txt', custom='custom.txt', noref_output='noref.txt', output='wordbank.txt'):
+    res = {
+        'time': OrderedDict(),
+        'location': OrderedDict(),
+        'person_name': OrderedDict(),
+        'org_name': OrderedDict(),
+        'company_name': OrderedDict(),
+        'product_name': OrderedDict(),
+        'job_title': OrderedDict(),
+        'other_proper': OrderedDict()
     }
     with open(original) as fle:
         for line in fle:
-            link, words = eval(line)
-            if not words:
+            link, word_dict = eval(line)
+            if not word_dict:
                 continue
-            for key, value in words.items():
-                ret[key] = ret[key].union(value)
-    words = ''
+            for key, words in word_dict.items():
+                d = res[key]
+                for word in words:
+                    d[word] = None
+    word_dict = ''
     noref_words = []
     with open(custom) as fle:
-        words = eval(fle.read())
-    if words:
-        for key, value in words.items():
-            if key not in ret:
-                ret[key] = set()
-            ret[key] = ret[key].union(set(value))
-            noref_words += value
-    ret = {k: list(v) for k, v in ret.items()}
+        word_dict = eval(fle.read())
+    if word_dict:
+        for key, words in word_dict.items():
+            if key not in res:
+                res[key] = OrderedDict.fromkeys(words)
+            else:
+                d = res[key]
+                for word in words:
+                    d[word] = None
+            noref_words += words
+    res = {k: list(v) for k, v in res.items()}
     with open(output, 'w') as fle:
-        fle.write(repr(ret) + '\n')
-    with open(noref, 'w') as fle:
+        fle.write(repr(res) + '\n')
+    with open(noref_output, 'w') as fle:
         fle.write(repr(set(noref_words)) + '\n')
+
+
+def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.txt'):
+    words = {}
+    noref_words = []
+    templates = []
+    with open(words_file) as fle:
+        words = eval(fle.readlines()[0])
+    with open(noref_words_file) as fle:
+        noref_words = eval(fle.readlines()[0])
+    with open(templates_file) as fle:
+        for line in fle.readlines():
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            templates.append(line)
+    with open(output, 'w') as fle:
+        fle.write(repr([words, noref_words, templates]))
 
 
 # [dumb_crawler_main(i) for i in range(10, 15)]
@@ -157,4 +182,5 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref='noref.tx
 # [dumb_crawler_hss_upcoming_events(i) for i in range(3)]
 # [dumb_crawler_hss_students_activities(i) for i in range(3)]
 # [dumb_crawler_hss_academic_activities(i) for i in range(5)]
-generate_word_bank()
+# generate_word_bank()
+# generate_merged_data()
