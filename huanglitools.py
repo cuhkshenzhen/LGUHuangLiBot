@@ -32,12 +32,15 @@ class HuangLi:
         with open(file) as fle:
             return eval(fle.readlines()[0])
 
-    def __init__(self, merged_data_file='merged.txt', words_file='wordbank.txt', templates_file='templates.txt',
+    def __init__(self, use_merged_data_py=True, merged_data_file='merged.txt', words_file='wordbank.txt', templates_file='templates.txt',
                  noref_file='noref.txt'):
         self.words = {}
         self.templates = []
         self.noref_words = set()
-        if merged_data_file:
+        if use_merged_data_py:
+            import merged_data
+            self.words, self.noref_words, self.templates = merged_data.words, merged_data.noref_words, merged_data.templates
+        elif merged_data_file:
             self.words, self.noref_words, self.templates = HuangLi.get_merged_data(merged_data_file)
         else:
             self.words = HuangLi.get_word_bank(words_file)
