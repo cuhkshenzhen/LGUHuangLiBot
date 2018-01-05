@@ -1,8 +1,25 @@
+import logging
 import re
 from collections import OrderedDict
 
 import requests
 from bs4 import BeautifulSoup
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+
+def get_default_words_dict():
+    return {
+        'time': OrderedDict(),  # OrderedDict is used to remove duplicates while preserving item order
+        'location': OrderedDict(),
+        'person_name': OrderedDict(),
+        'org_name': OrderedDict(),
+        'company_name': OrderedDict(),
+        'product_name': OrderedDict(),
+        'job_title': OrderedDict(),
+        'other_proper': OrderedDict()
+    }
 
 
 def get_text(body: str) -> str:
@@ -15,7 +32,7 @@ def get_text(body: str) -> str:
 
 def get_news(url: str, ancient=False) -> str:
     if ancient:
-        return bytes(requests.get(url).text, 'iso-8859-1').decode('utf-8')
+        return requests.get(url).content.decode('utf-8')
     else:
         return requests.get(url).text
 
@@ -25,19 +42,10 @@ def ner(text: str):
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Accept': '*/*'
     }
-    result = {
-        'time': OrderedDict(),  # Not using sets because order is significant
-        'location': OrderedDict(),
-        'person_name': OrderedDict(),
-        'org_name': OrderedDict(),
-        'company_name': OrderedDict(),
-        'product_name': OrderedDict(),
-        'job_title': OrderedDict(),
-        'other_proper': OrderedDict()
-    }
+    result = get_default_words_dict()
     response = requests.post('https://bosonnlp.com/analysis/ner?sensitivity=4', headers=headers, data=('data=' + text).encode('utf-8'))
     if response.status_code != 200:
-        print(text, response.status_code, response.headers, response.json())
+        logger.error('NER error! Text={}, Status={}, Headers={}, JSON={}'.format(text, response.status_code, response.headers, response.json()))
         return None
     response = response.json()[0]
     tags = response['tag']
@@ -72,7 +80,7 @@ def get_ner_entry(link, ancient=False) -> list:
 def crawl_single_page(url, fle, ancient=False):
     entry = get_ner_entry(url, ancient=ancient)
     fle.write(repr(entry) + '\n')
-    print('Saved: {}'.format(url))
+    logging.info('Saved page: {}'.format(url))
 
 
 def dumb_crawler_ancient_news(page=0, file='news.txt'):
@@ -136,16 +144,7 @@ def dumb_crawler_hss_academic_activities(page=0, file='news.txt'):
 
 
 def generate_word_bank(original='news.txt', custom='custom.txt', noref_output='noref.txt', output='wordbank.txt'):
-    res = {
-        'time': OrderedDict(),
-        'location': OrderedDict(),
-        'person_name': OrderedDict(),
-        'org_name': OrderedDict(),
-        'company_name': OrderedDict(),
-        'product_name': OrderedDict(),
-        'job_title': OrderedDict(),
-        'other_proper': OrderedDict()
-    }
+    res = get_default_words_dict()
     with open(original) as fle:
         for line in fle:
             link, word_dict = eval(line)
