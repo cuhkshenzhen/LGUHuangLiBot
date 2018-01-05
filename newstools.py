@@ -83,18 +83,28 @@ def crawl_single_page(url, fle, ancient=False):
     logging.info('Saved page: {}'.format(url))
 
 
+def _dumb_crawler_ancient(url_base, page, fle):
+    page_url = ''
+    if page == 0:
+        page_url = url_base
+    else:
+        page_url = url_base[:-5] + '_page_{}.html'.format(page)
+    page_res = requests.get(page_url).text
+    soup = BeautifulSoup(page_res, 'html.parser')
+    news_links = ['http://www.old.cuhk.edu.cn/News/' + x.get('href') for x in soup.find_all('a', class_=None) if
+                  x.get('href')[0].isdigit()]
+    for link in news_links:
+        crawl_single_page(link, fle, ancient=True)
+
+
+def dumb_crawler_ancient_activities(page=0, file='news.txt'):
+    with open(file, 'a') as fle:
+        _dumb_crawler_ancient('http://www.old.cuhk.edu.cn/News/index182.html', page, fle)
+
+
 def dumb_crawler_ancient_news(page=0, file='news.txt'):
     with open(file, 'a') as fle:
-        page_url = ''
-        if page == 0:
-            page_url = 'http://www.old.cuhk.edu.cn/News/index180.html'
-        else:
-            page_url = 'http://www.old.cuhk.edu.cn/News/index180_page_{}.html'.format(page)
-        page_res = requests.get(page_url).text
-        soup = BeautifulSoup(page_res, 'html.parser')
-        news_links = ['http://www.old.cuhk.edu.cn/News/' + x.get('href') for x in soup.find_all('a', class_=None) if x.get('href')[0].isdigit()]
-        for link in news_links:
-            crawl_single_page(link, fle, ancient=True)
+        _dumb_crawler_ancient('http://www.old.cuhk.edu.cn/News/index180.html', page, fle)
 
 
 def dumb_crawler_main(page=0, file='news.txt'):
@@ -199,5 +209,6 @@ def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt'
 # [dumb_crawler_hss_students_activities(i) for i in range(3)]
 # [dumb_crawler_hss_academic_activities(i) for i in range(5)]
 # [dumb_crawler_ancient_news(i) for i in range(61)]
+# [dumb_crawler_ancient_activities(i) for i in range(33)]
 # generate_word_bank()
 # generate_merged_data()
