@@ -1,3 +1,4 @@
+import re
 from collections import OrderedDict
 
 import requests
@@ -6,18 +7,17 @@ from bs4 import BeautifulSoup
 
 def get_text(body: str) -> str:
     soup = BeautifulSoup(body, 'html.parser')
-    ret = ''
     texts = map(lambda x: x.get_text(), soup.find_all(['p', 'span']))
-    for text in texts:
-        if len(text) > 5000:
-            ret += text[:5000] + '\n' + text[5000:] + '\n'
-        else:
-            ret += text + '\n'
-    return ret
+    text = ' '.join(texts)
+    text = re.sub(r'[\s\n]+', ' ', text)[:5000]
+    return text
 
 
-def get_news(url: str) -> str:
-    return requests.get(url).text
+def get_news(url: str, ancient=False) -> str:
+    if ancient:
+        return bytes(requests.get(url).text, 'iso-8859-1').decode('utf-8')
+    else:
+        return requests.get(url).text
 
 
 def ner(text: str):
@@ -25,7 +25,7 @@ def ner(text: str):
         'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
         'Accept': '*/*'
     }
-    res = {
+    result = {
         'time': OrderedDict(),  # Not using sets because order is significant
         'location': OrderedDict(),
         'person_name': OrderedDict(),
@@ -35,41 +35,58 @@ def ner(text: str):
         'job_title': OrderedDict(),
         'other_proper': OrderedDict()
     }
-    res = requests.post('https://bosonnlp.com/analysis/ner?sensitivity=4', headers=headers, data=('data=' + text).encode('utf-8'))
-    if res.status_code != 200:
-        print(text, res.status_code, res.headers, res.json())
+    response = requests.post('https://bosonnlp.com/analysis/ner?sensitivity=4', headers=headers, data=('data=' + text).encode('utf-8'))
+    if response.status_code != 200:
+        print(text, response.status_code, response.headers, response.json())
         return None
-    res = res.json()[0]
-    tags = res['tag']
-    words = res['word']
-    entities = res['entity']
+    response = response.json()[0]
+    tags = response['tag']
+    words = response['word']
+    entities = response['entity']
     for start, end, category in entities:
-        if category not in res:
+        if category not in result:
             continue
         word = ''.join(words[start:end])
         if len(word) > 1:
-            res[category][word] = None
+            result[category][word] = None
     for i, tag in enumerate(tags):
         word = words[i]
         if len(word) <= 1:
             continue
         if tag == 'ns':  # 地名，如“中国”，“上海市”，“江浙”
-            res['location'][word] = None
+            result['location'][word] = None
         elif tag == 'nt':  # 组织机构名，如“中国队”，“央行”
-            res['org_name'][word] = None
+            result['org_name'][word] = None
         elif tag == 'nz':  # 其它专有名词，如“银联”，“腾讯”
-            res['other_proper'][word] = None
-    return {k: list(v) for k, v in res.items()}
+            result['other_proper'][word] = None
+    return {k: list(v) for k, v in result.items()}
 
 
-def get_ner_entry(link) -> list:
-    return [link, ner(get_text(get_news(link)))]
+def get_ner_entry(link, ancient=False) -> list:
+    try:
+        return [link, ner(get_text(get_news(link, ancient=ancient)))]
+    except:
+        return [link, None]
 
 
-def crawl_single_page(url, fle):
-    entry = get_ner_entry(url)
+def crawl_single_page(url, fle, ancient=False):
+    entry = get_ner_entry(url, ancient=ancient)
     fle.write(repr(entry) + '\n')
     print('Saved: {}'.format(url))
+
+
+def dumb_crawler_ancient_news(page=0, file='news.txt'):
+    with open(file, 'a') as fle:
+        page_url = ''
+        if page == 0:
+            page_url = 'http://www.old.cuhk.edu.cn/News/index180.html'
+        else:
+            page_url = 'http://www.old.cuhk.edu.cn/News/index180_page_{}.html'.format(page)
+        page_res = requests.get(page_url).text
+        soup = BeautifulSoup(page_res, 'html.parser')
+        news_links = ['http://www.old.cuhk.edu.cn/News/' + x.get('href') for x in soup.find_all('a', class_=None) if x.get('href')[0].isdigit()]
+        for link in news_links:
+            crawl_single_page(link, fle, ancient=True)
 
 
 def dumb_crawler_main(page=0, file='news.txt'):
@@ -182,5 +199,6 @@ def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt'
 # [dumb_crawler_hss_upcoming_events(i) for i in range(3)]
 # [dumb_crawler_hss_students_activities(i) for i in range(3)]
 # [dumb_crawler_hss_academic_activities(i) for i in range(5)]
+# [dumb_crawler_ancient_news(i) for i in range(61)]
 # generate_word_bank()
 # generate_merged_data()

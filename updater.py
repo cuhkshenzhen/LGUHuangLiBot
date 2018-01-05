@@ -29,7 +29,6 @@ def get_links_in_page(page_url, legacy=True, starts_with_str=None):
 
 
 def add_ner_entry(link, lst):
-    print('nering {}'.format(link))
     lst.append(newstools.get_ner_entry(link))
 
 
