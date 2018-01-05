@@ -76,7 +76,7 @@ def get_updates(original: list):
     return updates
 
 
-def update_news_file(file='news.txt'):
+def update_news_file(file='news.txt') -> bool:
     original = []
     with open(file) as fle:
         for line in fle:
@@ -91,6 +91,9 @@ def update_news_file(file='news.txt'):
             for update in updates:
                 fle.write(repr(update) + '\n')
                 logger.info('Saved: {}'.format(update[0]))
+        return True
+    else:
+        return False
 
 
 def lambda_handle(event, context):
@@ -102,11 +105,11 @@ def lambda_handle(event, context):
     lambda_client = boto3.client('lambda')
     code_url = lambda_client.get_function(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'])['Code']['Location']
     code_zip_data = urlopen(code_url).read()
-    os.system('mkdir /tmp/work')
     with open('/tmp/code.zip', 'wb') as fle:
         fle.write(code_zip_data)
 
     logger.info('Preparing to extract bot code')
+    os.system('mkdir /tmp/work')
     with zipfile.ZipFile('/tmp/code.zip') as fle:
         fle.extractall('/tmp/work')
 
@@ -118,7 +121,10 @@ def lambda_handle(event, context):
         bucket.download_file('templates.txt', work('templates.txt'))
     else:
         logger.info('Preparing to get update from news')
-        update_news_file(work('news.txt'))
+        result = update_news_file(work('news.txt'))
+        if not result:
+            logger.info('No updates found. Returning...')
+            return
 
     logger.info('Preparing to regenerate word bank and merged data')
     newstools.generate_word_bank(work('news.txt'), custom=work('custom.txt'), noref_output=work('noref.txt'), output=work('wordbank.txt'))
@@ -129,6 +135,6 @@ def lambda_handle(event, context):
 
     logger.info('Preparing to upload')
     lambda_client.update_function_code(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'],
-                           ZipFile=open('/tmp/deploy.zip', 'rb').read())
+                                       ZipFile=open('/tmp/deploy.zip', 'rb').read())
 
     logger.info('Returning')
