@@ -184,7 +184,7 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref_output='n
         fle.write(repr(set(noref_words)) + '\n')
 
 
-def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.txt'):
+def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged_data.py'):
     words = {}
     noref_words = []
     templates = []
@@ -199,7 +199,13 @@ def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt'
                 continue
             templates.append(line)
     with open(output, 'w') as fle:
-        fle.write(repr([words, noref_words, templates]))
+        if output.endswith('.py'):
+            # Generate Python file instead of plain text file
+            fle.write('words = {}\n'
+                      'noref_words = {}\n'
+                      'templates = {}'.format(repr(words), repr(noref_words), repr(templates)))
+        else:
+            fle.write(repr([words, noref_words, templates]))
 
 
 # [dumb_crawler_main(i) for i in range(10, 15)]

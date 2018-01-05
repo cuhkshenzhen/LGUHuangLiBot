@@ -5,3 +5,4 @@ deploy.zip
 venv
 .*
 __pycache__
+merged_data.py
