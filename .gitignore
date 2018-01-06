@@ -6,3 +6,4 @@ venv
 .*
 __pycache__
 merged_data.py
+merged.json

@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from collections import OrderedDict
@@ -184,7 +185,7 @@ def generate_word_bank(original='news.txt', custom='custom.txt', noref_output='n
         fle.write(repr(set(noref_words)) + '\n')
 
 
-def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged_data.py'):
+def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.json'):
     words = {}
     noref_words = []
     templates = []
@@ -199,7 +200,9 @@ def generate_merged_data(words_file='wordbank.txt', noref_words_file='noref.txt'
                 continue
             templates.append(line)
     with open(output, 'w') as fle:
-        if output.endswith('.py'):
+        if output.endswith('.json'):
+            json.dump([words, list(noref_words), templates], fle, ensure_ascii=False)
+        elif output.endswith('.py'):
             # Generate Python file instead of plain text file
             fle.write('words = {}\n'
                       'noref_words = {}\n'

@@ -1,4 +1,5 @@
 import hashlib
+import json
 import re
 from random import Random
 from urllib.parse import urlencode
@@ -32,12 +33,17 @@ class HuangLi:
         with open(file) as fle:
             return eval(fle.readlines()[0])
 
-    def __init__(self, use_merged_data_py=True, merged_data_file='merged.txt', words_file='wordbank.txt', templates_file='templates.txt',
+    def __init__(self, merged_json='merged.json', use_merged_data_py=False, merged_data_file='merged.txt', words_file='wordbank.txt', templates_file='templates.txt',
                  noref_file='noref.txt'):
         self.words = {}
         self.templates = []
         self.noref_words = set()
-        if use_merged_data_py:
+        if merged_json:
+            words, noref_words_list, templates = {}, [], []
+            with open(merged_json) as fle:
+                words, noref_words_list, templates = json.load(fle)
+            self.words, self.noref_words, self.templates = words, set(noref_words_list), templates
+        elif use_merged_data_py:
             import merged_data
             self.words, self.noref_words, self.templates = merged_data.words, merged_data.noref_words, merged_data.templates
         elif merged_data_file:
