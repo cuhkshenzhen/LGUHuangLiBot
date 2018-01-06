@@ -128,7 +128,7 @@ def lambda_handle(event, context):
 
     logger.info('Preparing to regenerate word bank and merged data')
     newstools.generate_word_bank(work('news.txt'), custom=work('custom.txt'), noref_output=work('noref.txt'), output=work('wordbank.txt'))
-    newstools.generate_merged_data(work('wordbank.txt'), noref_words_file=work('noref.txt'), templates_file=work('templates.txt'), output=work('merged_data.py'))
+    newstools.generate_merged_data(work('wordbank.txt'), noref_words_file=work('noref.txt'), templates_file=work('templates.txt'), output=work('merged.json'))
 
     logger.info('Preparing to make deploy.zip')
     shutil.make_archive('/tmp/deploy', 'zip', '/tmp/work')
