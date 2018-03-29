@@ -98,8 +98,7 @@ def update_news_file(file='news.txt') -> bool:
 
 def lambda_handle(event, context):
 
-    def work(s: str):
-        return '/tmp/work/' + s
+    os.chdir('/tmp')
 
     logger.info('Preparing to download bot code')
     lambda_client = boto3.client('lambda')
@@ -113,22 +112,24 @@ def lambda_handle(event, context):
     with zipfile.ZipFile('/tmp/code.zip') as fle:
         fle.extractall('/tmp/work')
 
+    os.chdir('/tmp/work')
+
     logger.info('Preparing to update')
     if 'Records' in event:
         logger.info('Preparing to get update from S3')
         bucket = boto3.resource('s3').Bucket(os.environ['LGUHUANGLIBOT_DATA_BUCKET_NAME'])
-        bucket.download_file('custom.txt', work('custom.txt'))
-        bucket.download_file('templates.txt', work('templates.txt'))
+        bucket.download_file('custom.txt', 'custom.txt')
+        bucket.download_file('templates.txt', 'templates.txt')
     else:
         logger.info('Preparing to get update from news')
-        result = update_news_file(work('news.txt'))
+        result = update_news_file('news.txt')
         if not result:
             logger.info('No updates found. Returning...')
             return
 
     logger.info('Preparing to regenerate word bank and merged data')
-    newstools.generate_word_bank(work('news.txt'), custom=work('custom.txt'), noref_output=work('noref.txt'), output=work('wordbank.txt'))
-    newstools.generate_merged_data(work('wordbank.txt'), noref_words_file=work('noref.txt'), templates_file=work('templates.txt'), output=work('merged.json'))
+    newstools.generate_word_bank('news.txt', custom='custom.txt', noref_output='noref.txt', output='wordbank.txt')
+    newstools.generate_merged_data('wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.json')
 
     logger.info('Preparing to make deploy.zip')
     shutil.make_archive('/tmp/deploy', 'zip', '/tmp/work')
