@@ -3,6 +3,7 @@ import os
 import shutil
 import zipfile
 from concurrent.futures import ThreadPoolExecutor, wait
+from threading import Thread
 from urllib.request import urlopen
 
 import boto3
@@ -98,36 +99,47 @@ def update_news_file(file='news.txt') -> bool:
 
 def lambda_handle(event, context):
 
-    os.chdir('/tmp')
-
-    logger.info('Preparing to download bot code')
     lambda_client = boto3.client('lambda')
-    code_url = lambda_client.get_function(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'])['Code']['Location']
-    code_zip_data = urlopen(code_url).read()
-    with open('/tmp/code.zip', 'wb') as fle:
-        fle.write(code_zip_data)
 
-    logger.info('Preparing to extract bot code')
-    os.system('mkdir /tmp/work')
-    with zipfile.ZipFile('/tmp/code.zip') as fle:
-        fle.extractall('/tmp/work')
+    def process_bot_code():
+        logger.info('Preparing to download bot code')
+        code_url = lambda_client.get_function(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'])['Code']['Location']
+        code_zip_data = urlopen(code_url).read()
+        with open('/tmp/code.zip', 'wb') as fle:
+            fle.write(code_zip_data)
 
-    os.chdir('/tmp/work')
+        logger.info('Preparing to extract bot code')
+        os.system('mkdir /tmp/work')
+        with zipfile.ZipFile('/tmp/code.zip') as fle:
+            fle.extractall('/tmp/work')
+
+    bot_code_thread = Thread(target=process_bot_code, name='process_bot_code')
+    bot_code_thread.start()
 
     logger.info('Preparing to update')
-    if 'Records' in event:
+
+    def process_s3():
         logger.info('Preparing to get update from S3')
+        os.mkdir('/tmp/s3')
         bucket = boto3.resource('s3').Bucket(os.environ['LGUHUANGLIBOT_DATA_BUCKET_NAME'])
-        bucket.download_file('custom.txt', 'custom.txt')
-        bucket.download_file('templates.txt', 'templates.txt')
-    else:
-        logger.info('Preparing to get update from news')
-        result = update_news_file('news.txt')
-        if not result:
-            logger.info('No updates found. Returning...')
-            return
+        bucket.download_file('custom.txt', '/tmp/s3/custom.txt')
+        bucket.download_file('templates.txt', '/tmp/s3/templates.txt')
+
+    s3_thread = Thread(target=process_s3, name='process_s3')
+    s3_thread.start()
+
+    bot_code_thread.join()
+    s3_thread.join()
+
+    logger.info('Preparing to get update from news')
+    update_news_file('/tmp/work/news.txt')
 
     logger.info('Preparing to regenerate word bank and merged data')
+
+    os.chdir('/tmp/work')
+    shutil.copy('/tmp/s3/custom.txt', '/tmp/work/custom.txt')
+    shutil.copy('/tmp/s3/templates.txt', '/tmp/work/templates.txt')
+
     newstools.generate_word_bank('news.txt', custom='custom.txt', noref_output='noref.txt', output='wordbank.txt')
     newstools.generate_merged_data('wordbank.txt', noref_words_file='noref.txt', templates_file='templates.txt', output='merged.json')
 
@@ -138,4 +150,4 @@ def lambda_handle(event, context):
     lambda_client.update_function_code(FunctionName=os.environ['LGUHUANGLIBOT_LAMBDA_NAME'],
                                        ZipFile=open('/tmp/deploy.zip', 'rb').read())
 
-    logger.info('Returning')
+    logger.info('Done. Returning')
